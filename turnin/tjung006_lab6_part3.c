@@ -51,50 +51,99 @@ void TimerSet(unsigned long M){
 	_avr_timer_M = M;
 	_avr_timer_cntcurr = _avr_timer_M;
 }
+unsigned char tmpB = 0x07;
+unsigned char tmpA = 0x00;
+unsigned char one = 0x01;
 unsigned int i = 0;
-enum states{ start, pb0, pb1, pb2} state;
-
+unsigned int j = 0;
+enum states{start, r, a0p, a1p, doublep}state;
 void tick(){
 	switch(state){
 		case start:
-			state = pb0;
+			state = r;
+			tmpB = 0x07;
 			break;
-		case pb0:
-			state = pb1;
+		case r:
+			if(tmpA == 0x01){
+				state = a0p;
+				if(tmpB < 9){
+					tmpB += one;
+				}
+			}
+			else if(tmpA == 0x02){
+				state = a1p;
+				if(tmpB >0){
+					tmpB -= one;
+				}
+			} 
+			else if(tmpA == 0x03){
+				state = doublep;
+			}	
+			else{
+				state = r;
+			}
 			break;
-		case pb1: 
-			state = pb2;
+		case a0p:
+			i++;
+			if(i == 10){
+				if(tmpB < 9){
+					tmpB += one;
+				}
+				i = 0;
+			}
+			if(tmpA == 0x00){
+				state = r;
+			}
+			else if(tmpA == 0x03){
+				state = doublep;
+			}
+			else{
+				state = a0p;
+			}
 			break;
-		case pb2:
-			state = pb0;
+		case a1p:
+			j++;
+			if(j == 10){
+				if(tmpB > 0){
+					tmpB -= one;
+				}
+				j = 0;
+			}
+			if(tmpA == 0x03){
+				state = doublep;
+			}
+			else if(tmpA == 0x00){
+				state = r;
+			}
+			else{
+				state = a1p;
+			}
+			break;
+		case doublep:
+			if(tmpA == 0x00){
+				state = r;
+				tmpB = 0x00;
+			}
+			else{
+				state = doublep;
+			}
 			break;
 		default:
-			state = start;
 			break;
 	}
-	switch(state){
-		case pb0:
-			PORTB = 0x01;
-			break;
-		case pb1:
-			PORTB = 0x02;
-			break;
-		case pb2:
-			PORTB = 0x04;
-			break;
-		default:
-			break;
-	}
+	PORTB = tmpB;
 }
 int main(void) {
     /* Insert DDR and PORT initializations */
+    DDRA = 0x00; PORTA = 0xFF;
     DDRB = 0xFF;//set port B to output
-    PORTB = 0x00;
-    TimerSet(1000);
+    PORTB = 0x07;
+    TimerSet(100);
     TimerOn();
     state = start;
     /* Insert your solution below */
     while (1) {
+	tmpA = ~PINA & 0x03;
 	tick();
 	while(!TimerFlag){}
 	TimerFlag = 0;
